@@ -1,27 +1,25 @@
-from flask import jsonify, request, Flask
+import requests
+import json
+import unittest
+from unittest.mock import patch, Mock, MagicMock
 
-from models import Book
 
-app = Flask(__name__)
+def get_data(isbn):
+    response = requests.get(f'https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}')
+    data = json.loads(response.text)
+    return data
 
-@app.route('/debug-query')
-def debug_query():
-    query = request.args.get('query', '')
-    if not query:
-        return {"error": "No query provided"}
-
-    # Perform the database query
-    results = Book.query.filter(Book.title.ilike(f"%{query}%")).all()
-
-    # Log the results to ensure the query works
-    for book in results:
-        print(f"Found: {book.title} by {book.author}")
-
-    # Return the results as JSON for easy debugging
-    return jsonify([
-        {"id": book.isbn, "title": book.title, "author": book.author}
-        for book in results
-    ])
+class TestGetData(unittest.TestCase):
+    @patch('requests.get')
+    def test_get_data(self, mock_get_data):
+        mock_response = MagicMock()
+        mock_response.text = json.dumps({"items": [{"title": "Inferno"}]})
+        mock_get_data.return_value = mock_response
+        isbn = "9780593072493"
+        result = get_data(isbn)
+        self.assertIn("items", result)
+        self.assertEquals(result["items"][0]["title"], "Inferno")
+        mock_get_data.assert_called_with(f'https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}')
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    unittest.main()
